@@ -1,6 +1,7 @@
 # Conveyor, an idiomatic and asynchronous Go message broker abstraction
 
 [![Build Status](https://travis-ci.org/leolara/conveyor.svg?branch=master)](https://travis-ci.org/leolara/conveyor)
+[![docs](https://godoc.org/github.com/leolara/conveyor?status.svg)](http://godoc.org/github.com/leolara/conveyor)
 
 This Go module provides an abstraction for message queues, brokers, buses and the sort. It is idiomatic and asynchronous
 because it uses Go channels everywhere
