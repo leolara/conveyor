@@ -16,7 +16,7 @@ With conveyor you send and receive messages using Go channels.
 
 ### Sending messages
 
-To write to a queue called `myqueue` you would do:
+To write to a queue called `exampleTopic` you would do:
 
 ```go
 // This creates a channel to publish messages
@@ -51,7 +51,7 @@ close(pubChan)
 
 In the other side is as idiomatic, asynchronous and channel based as when sending messages.
 
-To start receiving messages from `myqueue`:
+To receive messages from `exampleTopic`:
 
 ```go
 
@@ -108,4 +108,3 @@ Conveyor disadvantages: code that uses it needs to be aware of Conveyor interfac
 
 If you have some idea for some changes, please create an issue explaining your idea before sending a pull request. We are
 happy to have your help.
-
