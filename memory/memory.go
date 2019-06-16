@@ -30,12 +30,13 @@ type memoryBroker struct {
 }
 
 type memorySubscription struct {
-	id uint
-
 	topic string
-	ch    chan conveyor.ReceiveEnvelope
 
+	id     uint
 	parent *memoryBroker
+
+	ch     chan conveyor.ReceiveEnvelope
+	stopCh chan interface{}
 }
 
 func (ms *memorySubscription) Receive() <-chan conveyor.ReceiveEnvelope {
@@ -44,9 +45,18 @@ func (ms *memorySubscription) Receive() <-chan conveyor.ReceiveEnvelope {
 
 func (ms *memorySubscription) Unsubscribe() {
 	ms.parent.unsubscribe(ms)
-	close(ms.ch)
-	for range ms.ch {
+	close(ms.stopCh)
+}
 
+func (ms *memorySubscription) publication(envelope conveyor.ReceiveEnvelope) {
+	select {
+	case <-ms.stopCh:
+		return
+	default:
+	}
+	select {
+	case <-ms.stopCh:
+	case ms.ch <- envelope:
 	}
 }
 
@@ -66,8 +76,9 @@ func (b *memoryBroker) run() {
 func (b *memoryBroker) Subscribe(target string, options ...interface{}) <-chan conveyor.Subscription {
 	s := &memorySubscription{
 		topic:  target,
-		ch:     make(chan conveyor.ReceiveEnvelope),
 		parent: b,
+		ch:     make(chan conveyor.ReceiveEnvelope),
+		stopCh: make(chan interface{}),
 	}
 
 	b.subscribersMutex.Lock()
@@ -93,23 +104,11 @@ func (b *memoryBroker) publishLoop(target string, msgs <-chan conveyor.SendEnvel
 		subscribers := b.subscribers[target]
 		b.subscribersMutex.Unlock()
 		for _, s := range subscribers {
-			go b.publish(
-				s.ch,
-				conveyor.NewReceiveEnvelopCopy(msg.Body(), b.ackBlackHole),
-			)
+			go s.publication(conveyor.NewReceiveEnvelopCopy(msg.Body(), b.ackBlackHole))
 		}
 
-		go func () {msg.Error() <- nil}() // signal that the publication had no errors
+		go func() { msg.Error() <- nil }() // signal that the publication had no errors
 	}
-}
-
-func (*memoryBroker) publish(ch chan conveyor.ReceiveEnvelope, envelope conveyor.ReceiveEnvelope) {
-	// We will panic if the channel is closed, avoid it having an effect
-	defer func() {
-		recover()
-	}()
-
-	ch <- envelope
 }
 
 func (b *memoryBroker) unsubscribe(sub *memorySubscription) {

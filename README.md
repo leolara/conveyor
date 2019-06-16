@@ -6,9 +6,9 @@
 This Go module provides an abstraction for message queues, brokers, buses and the sort. It is idiomatic and asynchronous
 because it uses Go channels everywhere
 
-In another repo there are implementations for redis, rabbitmq, ...
+You can find implementations for Kafka, MQTT, NATS, NSQ, RabbitMQ, Redis, AWS SQS, STAN and STOMP at [github.com/leolara/conveyor-impl](https://github.com/leolara/conveyor-impl) 
 
-This Go module includes an in-memory message broker implementation that is useful for testing
+This module includes an in-memory message broker implementation that is useful for testing
 
 ## How does it work
 

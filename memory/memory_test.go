@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -23,12 +24,12 @@ func TestMemoryBroker(t *testing.T) {
 	pubChan <- conveyor.NewSendEnvelop([]byte{24}, pubChanErr)
 
 	select {
-		case err := <-pubChanErr:
-			if err != nil {
-				t.Errorf("got publication error: %s", err)
-			}
-		case <-time.After(time.Microsecond):
-			t.Error("Did not receive empty error")
+	case err := <-pubChanErr:
+		if err != nil {
+			t.Errorf("got publication error: %s", err)
+		}
+	case <-time.After(time.Microsecond):
+		t.Error("Did not receive empty error")
 	}
 
 	select {
@@ -45,12 +46,25 @@ func TestMemoryBroker(t *testing.T) {
 	}
 
 	pubChan <- conveyor.NewSendEnvelop([]byte{42}, pubChanErr)
-	<-time.After(time.Millisecond)
+	runtime.Gosched()
 
 	sub.Unsubscribe()
+	runtime.Gosched()
 
 	select {
-	case _, ok :=<-sub.Receive():
+	case _, ok := <-sub.Receive():
+		if ok {
+			t.Error("shouldn't receive anything")
+		}
+	case <-time.After(10 * time.Millisecond):
+		// OK
+	}
+
+	pubChan <- conveyor.NewSendEnvelop([]byte{42}, pubChanErr)
+	runtime.Gosched()
+
+	select {
+	case _, ok := <-sub.Receive():
 		if ok {
 			t.Error("shouldn't receive anything")
 		}
