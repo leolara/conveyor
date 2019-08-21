@@ -49,6 +49,10 @@ func (ms *memorySubscription) Unsubscribe() {
 	ms.parent.unsubscribe(ms)
 	close(ms.stopCh)
 
+	// https://groups.google.com/forum/#!topic/golang-nuts/Qq_h0_M51YM
+	// https://stackoverflow.com/questions/53769216/is-it-safe-to-add-to-a-waitgroup-from-multiple-goroutines
+	ms.writersWG.Done() // To avoid a strange situation that triggers the race detector
+
 	ms.writersWG.Wait()
 
 	close(ms.ch)
@@ -92,6 +96,8 @@ func (b *memoryBroker) Subscribe(target string, options ...interface{}) <-chan c
 		stopCh: make(chan interface{}),
 	}
 
+	s.writersWG.Add(1) // To avoid a strange situation that triggers the race detector
+
 	b.subscribersMutex.Lock()
 	b.subscriberIDgen++
 	s.id = b.subscriberIDgen
@@ -112,13 +118,15 @@ func (b *memoryBroker) Publish(target string, msgs <-chan conveyor.SendEnvelop, 
 func (b *memoryBroker) publishLoop(target string, msgs <-chan conveyor.SendEnvelop) {
 	for msg := range msgs {
 		b.subscribersMutex.Lock()
-		subscribers := b.subscribers[target]
+		subscribers := make([]*memorySubscription, len(b.subscribers[target]))
+		copy(subscribers, b.subscribers[target])
 		b.subscribersMutex.Unlock()
 		for _, s := range subscribers {
 			go s.publication(conveyor.NewReceiveEnvelopCopy(msg.Body(), b.ackBlackHole))
 		}
 
-		go func() { msg.Error() <- nil }() // signal that the publication had no errors
+		errChan := msg.Error()
+		go func() { errChan <- nil }() // signal that the publication had no errors
 	}
 }
 
