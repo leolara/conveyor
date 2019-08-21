@@ -35,8 +35,10 @@ type memorySubscription struct {
 	id     uint
 	parent *memoryBroker
 
-	ch     chan conveyor.ReceiveEnvelope
-	stopCh chan interface{}
+	ch chan conveyor.ReceiveEnvelope
+
+	stopCh    chan interface{}
+	writersWG sync.WaitGroup
 }
 
 func (ms *memorySubscription) Receive() <-chan conveyor.ReceiveEnvelope {
@@ -46,6 +48,10 @@ func (ms *memorySubscription) Receive() <-chan conveyor.ReceiveEnvelope {
 func (ms *memorySubscription) Unsubscribe() {
 	ms.parent.unsubscribe(ms)
 	close(ms.stopCh)
+
+	ms.writersWG.Wait()
+
+	close(ms.ch)
 }
 
 func (ms *memorySubscription) publication(envelope conveyor.ReceiveEnvelope) {
@@ -54,13 +60,18 @@ func (ms *memorySubscription) publication(envelope conveyor.ReceiveEnvelope) {
 		return
 	default:
 	}
+
+	ms.writersWG.Add(1)
+	defer ms.writersWG.Done()
+
 	select {
 	case <-ms.stopCh:
 	case ms.ch <- envelope:
 	}
 }
 
-func (memorySubscription) Error() error {
+// Error returns nil always for this implementation
+func (*memorySubscription) Error() error {
 	return nil
 }
 
