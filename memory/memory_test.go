@@ -28,7 +28,7 @@ func TestMemoryBroker(t *testing.T) {
 		if err != nil {
 			t.Errorf("got publication error: %s", err)
 		}
-	case <-time.After(1000 * time.Microsecond):
+	case <-time.After(time.Second):
 		t.Error("Did not receive empty error")
 	}
 
@@ -41,7 +41,7 @@ func TestMemoryBroker(t *testing.T) {
 			t.Error("received wrong data")
 		}
 		envelope.Ack() <- nil
-	case <-time.After(1000 * time.Microsecond):
+	case <-time.After(time.Second):
 		t.Error("Did not receive message")
 	}
 

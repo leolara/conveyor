@@ -37,8 +37,9 @@ type memorySubscription struct {
 
 	ch chan conveyor.ReceiveEnvelope
 
-	stopCh    chan interface{}
-	writersWG sync.WaitGroup
+	stopCh         chan interface{}
+	writersWG      sync.WaitGroup
+	writersWGMutex sync.Mutex
 }
 
 func (ms *memorySubscription) Receive() <-chan conveyor.ReceiveEnvelope {
@@ -49,24 +50,24 @@ func (ms *memorySubscription) Unsubscribe() {
 	ms.parent.unsubscribe(ms)
 	close(ms.stopCh)
 
-	// https://groups.google.com/forum/#!topic/golang-nuts/Qq_h0_M51YM
-	// https://stackoverflow.com/questions/53769216/is-it-safe-to-add-to-a-waitgroup-from-multiple-goroutines
-	ms.writersWG.Done() // To avoid a strange situation that triggers the race detector
-
+	ms.writersWGMutex.Lock()
 	ms.writersWG.Wait()
+	ms.writersWGMutex.Unlock()
 
 	close(ms.ch)
 }
 
 func (ms *memorySubscription) publication(envelope conveyor.ReceiveEnvelope) {
+	ms.writersWGMutex.Lock()
+	ms.writersWG.Add(1)
+	ms.writersWGMutex.Unlock()
+	defer ms.writersWG.Done()
+
 	select {
 	case <-ms.stopCh:
 		return
 	default:
 	}
-
-	ms.writersWG.Add(1)
-	defer ms.writersWG.Done()
 
 	select {
 	case <-ms.stopCh:
@@ -95,8 +96,6 @@ func (b *memoryBroker) Subscribe(target string, options ...interface{}) <-chan c
 		ch:     make(chan conveyor.ReceiveEnvelope),
 		stopCh: make(chan interface{}),
 	}
-
-	s.writersWG.Add(1) // To avoid a strange situation that triggers the race detector
 
 	b.subscribersMutex.Lock()
 	b.subscriberIDgen++
